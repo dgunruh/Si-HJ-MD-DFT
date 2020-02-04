@@ -1,0 +1,41 @@
+# DATE: 2020-01-31 CONTRIBUTOR: Davis Unruh, dgunruh@ucdavis.edu CITATION: Ramana, M. and H. Atwater, "Empirical interatomic potential for Si-H interactions," Phy. Rev. B., 51 (8), 1995.
+
+# Si and H mixture, parameterized for Tersoff potential
+
+
+# Tersoff parameters for various elements and mixtures
+# multiple entries can be added to this file, LAMMPS reads the ones it needs
+# these entries are in LAMMPS "metal" units:
+#   A,B = eV; lambda1,lambda2,lambda3 = 1/Angstroms; R,D = Angstroms
+#   other quantities are unitless
+
+#R = (R+S)/2
+#D = (S-R)/2
+
+#n, beta, lambda2, B, lambda1 and A are only used for 2-body interactions
+#R and D are used for both
+#m, gamma, lambda3, c, d, and costheta0 parameters are only used for 3-body interactions
+#The value of m must be 3 or 1
+#the first element in the entry is the center atom, and is bonded to the 2nd and the bond influenced by the 3rd
+#the parameters used for the two-body interaction come from the entry where the 2nd element is repeated. E.g. Si-C would come from SiCC
+#the parameters used only for two body interactions (e.g n, beta etc) in entries whose 2nd and 3rd element are different can be set to 0.0 (not used for anything)
+
+#In the i-j-k notation, the value for n (eta) is given by the i-j bond. The values for beta, h, c and d are given by the i-k bond. i is the center atom, bonded to j, with the bond influenced by k. 
+
+# format of a single entry (one or more lines):
+#   element 1, element 2, element 3, m gamma, lambda3, c, d, costheta0 (h), n (eta), beta, lambda2, B, R, D, lambda1, A
+
+
+#			m   gamma	lambda3 c       d       costheta0   n			beta		lambda2	B       R 			D 			lambda1 	A
+Si	Si	Si	3	1		0		100390	16.217	-0.59825	0.78734		3			1.7322	471.18	2.85		0.15	   	2.4799   	1830.8
+H	H	H   3	1		0		0	   	1.0	    -1.0		1.0  	    1.0			1.7956  31.38	1.4			0.30	   	4.2075   	80.07
+																
+																
+Si	H	H	3   1		0		0.0216	0.27	-0.59825	1.0			3 			1.6158	84.18   1.85	    0.15	   	2.9595		323.54
+Si	H	Si	3	1		0		0.0216	0.27	-0.59825	1.0			3			0		0		1.85		0.15		0       	0
+Si	Si	H	3   1		0		0.0216	0.27	-0.59825	0.78734		3			0		0		1.85     	0.15		0			0
+		  																
+H	Si	Si   3  1		0		0.7		1.00	-1.0		1.0  	    3			1.6158	84.18	1.85	    0.15       	2.9595   	323.54
+H	H	Si   3	1		0	    0	   	1.0	    -1.0		1.0  	    1			0		0		1.85		0.15	    0			0
+H	Si	H    3	1		0	    0	   	1.0	     1.0		1.0  	   	1			0		0		1.85		0.15		0			0
+			
