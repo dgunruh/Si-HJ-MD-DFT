@@ -1,0 +1,66 @@
+# ---------Initialize Simulation---------
+clear
+units 		metal
+dimension 	3
+boundary 	p p s   #p indicates that the boundary (x,y,z) is periodic  s is shrink-wrapped
+atom_style 	atomic
+atom_modify 	map array
+
+# ---------Create Atoms-------------------
+# Si is a diamond lattice
+# lattice constant: 5.5 AA
+
+lattice diamond 5.43
+region 		CrystallineBox block 0 5 0 5 0 4 units lattice
+region		AmorphousBox block 0 5 0 5 4 5 units lattice
+region		InterfaceBox union 2 CrystallineBox AmorphousBox
+create_box 	1 InterfaceBox
+
+lattice diamond 5.43 orient x 1 0 0 orient y 0 1 0 orient z 0  0 1
+mass 		1 28.0855
+create_atoms 	1 region CrystallineBox
+
+# ----------Define interatomic potential --------------
+pair_style 	tersoff
+pair_coeff 	* * potentials/Si.tersoff Si
+#neighbor 	4.0 bin
+#neigh_modify 	delay 10 check yes
+
+# ---------Read in the already created amorphous structure --------------  NEED TO FIGURE OUT HOW TO DO THIS
+read_dump	aSi.xyz 2933000 x y z box no purge no
+group 		mobileatoms region AmorphousBox
+
+# ----------Dump xyz file with atoms and bonds -----------
+# Read with Ovito or jmol
+dump 		1 all atom 1000 aSicSiInterface.xyz
+#dump_modify 	1 element Si
+
+# ------- Initialize conditions ----------
+#set initial temperature to be 800K, but first relax the system via energy minimization
+minimize 	1.0e-2 1.0e-6 1000 100000
+velocity  	mobileatoms create 800.0 15046 mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
+timestep 	.0001 #.1 fs
+
+# ------- Display conditions each 1000 step
+thermo_style 	custom step temp pe ke etotal
+thermo 		100
+
+# --------Run simulation -------------
+#Stabilize the simulation at 800K, low enough that the amorphous layer won't melt again
+fix		1 all nvt temp 800.0 800.0 0.1
+run		100000 #10 ps
+unfix 		1
+
+fix		2 all langevin 800.0 0.0 0.1 15400
+run 		100000
+unfix 		2
+
+
+# --------- Run Energy Minimization -------------
+#minimize 	1.0e-4 1.0e-6 1000 100000
+#Alternative is to use fix viscous to drain the kinetic energy out of the system
+
+
+# --------- Dump xyz file with atoms of only the final state ------------
+write_dump	all atom aSicSiInterfaceSnapshot.xyz
+

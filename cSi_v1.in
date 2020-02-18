@@ -8,14 +8,13 @@ atom_modify 	map array
 
 # ---------Create Atoms-------------------
 # Si is a diamond lattice
-# lattice constant: 5.5 AA
+# lattice constant: 5.43 AA gives correct Si density
 
 lattice diamond 5.43
-region 		FULLBOX block 0 10 0 10 0 12 units lattice
-region 		FIXEDHALF block 0 10 0 10 0 5 units lattice
-region 		MOBILEHALF block 0 10 0 10 5 10 units lattice
+region 		FIXEDHALF block 0 3 0 3 0 1 units lattice
+region 		MOBILEHALF block 0 3 0 3 1 4 units lattice
 region 		ATOMICBOX union 2 FIXEDHALF MOBILEHALF
-create_box 	1 FULLBOX
+create_box 	1 ATOMICBOX
 
 lattice diamond 5.4 orient x 1 0 0 orient y 0 1 0 orient z 0  0 1
 mass 		1 28.0855
@@ -24,36 +23,42 @@ group 		fixedatoms region FIXEDHALF
 group 		mobileatoms region MOBILEHALF
 
 # ----------Define interatomic potential --------------
-pair_style 	tersoff
-pair_coeff 	* * potentials/Si.tersoff Si
+pair_style 	tersoff/mod/c
+#pair_coeff	* * SiH_DUG_TersoffPRB.tersoff Si
+pair_coeff 	* * potentials/Si.tersoff.modc Si
 #neighbor 	4.0 bin
 #neigh_modify 	delay 10 check yes
 
-# ---------Create bonds --------------  NEED TO FIGURE OUT HOW TO DO THIS
-#create_bonds 	many all all 1 1.0 1.2
-
 # ----------Dump xyz file with atoms and bonds -----------
 # Read with Ovito or jmol
-dump 		1 all atom 1000 cSi.xyz
+dump 		1 all atom 1000 cSi_v1.xyz
 #dump_modify 	1 element Si
-
-# ------- Initialize conditions ----------
-#set initial temperature to be 1000K
-velocity 	mobileatoms create 1000.0 4928459 mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
-timestep 	.0005
 
 # ------- Display conditions each 1000 step
 thermo_style 	custom step temp pe ke etotal
 thermo 		100
 
+run 		1000
+
+# ------- Initialize conditions ----------
+#set initial temperature to be 1000K
+velocity 	all create 300.0 15028 mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
+timestep 	.0001
+
 # --------Run simulation -------------
-fix 		1 mobileatoms nvt temp 1000.0 1000.0 0.1
-run 		50000
+timestep	.0005
+fix 		1 all nvt temp 300.0 300.0 0.09
+run 		10000
 unfix 		1
 
-fix 		2 mobileatoms nvt temp 1000.0 300.0 0.1
-run 		1400000
-unfix 		2
+timestep 	.0001
+fix		2 all nvt temp 300 2000.0 0.1
+fun		100000
+unfix		2
+
+#fix 		2 mobileatoms nvt temp 1000.0 300.0 0.1
+#run 		1400000
+#unfix 		2
 
 #fix 		3 mobileatoms nvt temp 1000.0 500.0 100.0
 #run 		1000

@@ -40,7 +40,7 @@ dump 		1 all atom 1000 cSi.xyz
 # ------- Initialize conditions ----------
 #set initial temperature to be 100K
 velocity 	mobileatoms create 300.0 15046 mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
-timestep 	.0005
+timestep 	.0001 #.1fs
 
 # ------- Display conditions each 1000 step
 thermo_style 	custom step temp pe ke etotal lz
@@ -49,7 +49,7 @@ thermo 		100
 # --------Run simulation -------------
 #Stabilize the simulation at 300K
 fix		1 mobileatoms nvt temp 300.0 300.0 0.1
-run		50000
+run		100000 #10 ps
 unfix 		1
 
 #Heat the sample to 2000K
@@ -59,16 +59,21 @@ unfix 		2
 
 #Anneal the sample at 2000K
 fix 		3 mobileatoms nvt temp 2000.0 2000.0 0.1
-run 		150000
+run 		150000 #15 ps
 unfix 		3
 
 #Cool the sample back down to 300K
 fix		4 mobileatoms nvt temp 2000.0 300.0 0.1
-run 		1000000
+run 		2833000 #for a cooling rate of 6*10^12 K/s (6K/ps) 
 unfix		4
+
+#Anneal the sample at 300K
+fix		5 mobileatoms nvt temp 300.0 300.0 0.1
+run		100000 #10 ps
+unfix		5
 
 
 # --------- Run Energy Minimization -------------
-minimize 	1.0e-4 1.0e-6 1000 100000
+#minimize 	1.0e-4 1.0e-6 1000 100000
 #Alternative is to use fix viscous to drain the kinetic energy out of the system
 
