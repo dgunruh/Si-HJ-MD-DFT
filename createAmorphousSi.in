@@ -11,7 +11,7 @@ atom_modify 	map array
 # lattice constant: 5.5 AA
 
 lattice diamond 5.43
-region 		BOX block 0 5 0 5 4 5 units lattice
+region 		BOX block 0 3 0 3 0.5 4 units lattice
 create_box 	1 BOX
 
 lattice diamond 5.43 orient x 1 0 0 orient y 0 1 0 orient z 0  0 1
@@ -19,8 +19,8 @@ mass 		1 28.0855
 create_atoms 	1 region BOX
 
 # ----------Define interatomic potential --------------
-pair_style 	tersoff
-pair_coeff 	* * potentials/Si.tersoff Si
+pair_style 	tersoff/mod/c
+pair_coeff 	* * potentials/Si.tersoff.modc Si
 #neighbor 	4.0 bin
 #neigh_modify 	delay 10 check yes
 
@@ -29,12 +29,12 @@ pair_coeff 	* * potentials/Si.tersoff Si
 
 # ----------Dump xyz file with atoms and bonds -----------
 # Read with Ovito or jmol
-dump 		1 all atom 1000 aSi.xyz
+dump 		1 all atom 10000 aSi.xyz
 #dump_modify 	1 element Si
 
 # ------- Initialize conditions ----------
 #set initial temperature to be 2000K
-velocity 	all create 2000.0 15046 mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
+velocity 	all create 3000.0 15046 mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
 timestep 	.0001 #.1 fs
 
 # ------- Display conditions each 1000 step
@@ -43,13 +43,15 @@ thermo 		100
 
 # --------Run simulation -------------
 #Stabilize the simulation at 2000K
-fix		1 all nvt temp 2000.0 2000.0 0.1
-run		100000 #10 ps
+fix		1 all langevin 3000.0 3000.0 0.1 15046
+fix		2 all nve
+run		200000 #anneal for 20 ps
 unfix 		1
+unfix		2
 
-#Cool the sample back down to 300K
-fix		4 all nvt temp 2000.0 300.0 0.1
-run 		2833000
+#Cool the sample back down to 800K
+fix		4 all nvt temp 3000.0 800.0 0.1
+run 		3650000
 unfix		4
 
 
@@ -59,5 +61,5 @@ unfix		4
 
 
 # --------- Dump xyz file with atoms of only the final state ------------
-write_dump	all atom aSiBox.xyz modify 1 element Si
+write_dump	all atom aSiBox.xyz
 

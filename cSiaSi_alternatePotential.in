@@ -11,6 +11,7 @@ atom_modify 	map array
 # lattice constant: 5.5 AA
 
 lattice diamond 5.43
+region 		FULLBOX block 0 10 0 10 0 12 units lattice
 region 		FIXEDHALF block 0 3 0 3 0 0.5 units lattice
 region 		MOBILEHALF block 0 3 0 3 0.5 4 units lattice
 region		PUREAMORPHOUS block 0 3 0 3 1.5 3 units lattice
@@ -31,8 +32,8 @@ group		purecrystalline region PURECRYSTALLINE
 #pair_coeff 	* * SiH_DUG_TersoffPRB.tersoff Si
 #pair_coeff	* * potentials/Si.tersoff Si
 #pair_coeff 	* * potentials/SiCGe.tersoff Si(D)
-pair_style	tersoff/mod/c
-pair_coeff	* * potentials/Si.tersoff.modc Si
+pair_style	tersoff/mod
+pair_coeff	* * potentials/Si.tersoff.mod Si
 #neighbor 	4.0 bin
 #neigh_modify 	delay 10 check yes
 
@@ -54,12 +55,12 @@ compute		pe_cSi_puretotal purecrystalline reduce sum c_pe_cSi_pure
 variable	pe_cSi_pureAverage equal c_pe_cSi_puretotal/count(purecrystalline)
 
 variable	excessEnergy equal v_pe_aSiAverage-v_pe_cSiAverage
-fix		pe_output all ave/time 100 5 10000 v_pe_aSiAverage v_pe_cSiAverage v_pe_aSi_pureAverage v_pe_cSi_pureAverage v_excessEnergy file potentialEnergy_modc.output
+fix		pe_output all ave/time 100 5 10000 v_pe_aSiAverage v_pe_cSiAverage v_pe_aSi_pureAverage v_pe_cSi_pureAverage v_excessEnergy file potentialEnergy_mod.output
 
 
 # ----------Dump xyz file with atoms and bonds -----------
 # Read with Ovito or jmol
-dump 		1 all atom 10000 cSiaSi_modc.xyz
+dump 		1 all atom 1000 cSiaSi_mod.xyz
 #dump_modify 	1 element Si
 
 # ------- Initialize conditions ----------
@@ -75,12 +76,12 @@ thermo 		100
 
 # --------Run simulation -------------
 #Stabilize the simulation at 2200K
-fix		1 mobileatoms nvt temp 3000.0 3000.0 0.1
-#fix		1 mobileatoms langevin 3600.0 3600.0 0.1 15046
-#fix		2 mobileatoms nve
-run		250000 #anneal for 20 ps
+#fix		1 mobileatoms nvt temp 3000.0 3000.0 0.1
+fix		1 mobileatoms langevin 3000.0 3000.0 0.1 15046
+fix		2 mobileatoms nve
+run		100000 #anneal for 10 ps
 unfix 		1
-#unfix		2
+unfix		2
 
 #Cool the sample down to 300K
 #fix		3 mobileatoms langevin 3000.0 300.0 1.0 12046
@@ -93,8 +94,6 @@ unfix		3
 #Anneal the sample at 300K
 #fix		5 mobileatoms langevin 300.0 300.0 0.1 18035
 #fix		6 mobileatoms nve
-fix		stable fixedatoms langevin 300.0 300.0 0.1 16801
-fix		stablenve fixedatoms nve
 fix		4 mobileatoms nvt temp 300.0 300.0 0.1
 run		250000 #anneal for 25 ps
 unfix		4
@@ -113,5 +112,5 @@ unfix		6
 #Alternative is to use fix viscous to drain the kinetic energy out of the system
 
 # --------- Output final snapshot ---------------
-write_dump	all atom aSicSiInterface_modc.xyz
+write_dump	all atom aSicSiInterface_mod.xyz
 

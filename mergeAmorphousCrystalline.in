@@ -2,7 +2,7 @@
 clear
 units 		metal
 dimension 	3
-boundary 	p p s   #p indicates that the boundary (x,y,z) is periodic  s is shrink-wrapped
+boundary 	p p p   #p indicates that the boundary (x,y,z) is periodic  s is shrink-wrapped
 atom_style 	atomic
 atom_modify 	map array
 
@@ -10,34 +10,60 @@ atom_modify 	map array
 # Si is a diamond lattice
 # lattice constant: 5.5 AA
 
-lattice diamond 5.43
-region 		CrystallineBox block 0 5 0 5 0 4 units lattice
-region		AmorphousBox block 0 5 0 5 4 5 units lattice
+lattice diamond 5.43 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+region 		CrystallineBox block 0 3 0 3 0 0.45 units lattice
+region		AmorphousBox block 0 3 0 3 0.45 4 units lattice
+region		PUREAMORPHOUS block 0 3 0 3 1.5 3 units lattice
+region		PURECRYSTALLINE block 0 3 0 3 0 0.45 units lattice
 region		InterfaceBox union 2 CrystallineBox AmorphousBox
 create_box 	1 InterfaceBox
-
-lattice diamond 5.43 orient x 1 0 0 orient y 0 1 0 orient z 0  0 1
 mass 		1 28.0855
+
+# ---------Read in the already created amorphous structure --------------
+read_dump	aSi.xyz 3850000 x y z box no add yes #3850000 should be whatever the last timestep is in the file
+
+# --------- Create the fixed crystalline structure -----------
 create_atoms 	1 region CrystallineBox
 
+# --------- Identify the relevant groups of atoms ------------
+group		fixedatoms region CrystallineBox
+group 		mobileatoms region AmorphousBox
+group		puremobile region PUREAMORPHOUS
+group		purecrystalline region PURECRYSTALLINE
+
 # ----------Define interatomic potential --------------
-pair_style 	tersoff
-pair_coeff 	* * potentials/Si.tersoff Si
+pair_style 	tersoff/mod/c
+pair_coeff 	* * potentials/Si.tersoff.modc Si
 #neighbor 	4.0 bin
 #neigh_modify 	delay 10 check yes
 
-# ---------Read in the already created amorphous structure --------------  NEED TO FIGURE OUT HOW TO DO THIS
-read_dump	aSi.xyz 2933000 x y z box no purge no
-group 		mobileatoms region AmorphousBox
+# ---------Define Potential Energy Outputs for Excess Energy Calculation --------------
+compute		pe_aSi mobileatoms pe/atom
+compute		pe_aSitotal mobileatoms reduce sum c_pe_aSi
+variable	pe_aSiAverage equal c_pe_aSitotal/count(mobileatoms)
+
+compute		pe_cSi fixedatoms pe/atom
+compute		pe_cSitotal fixedatoms reduce sum c_pe_cSi
+variable	pe_cSiAverage equal c_pe_cSitotal/count(fixedatoms)
+
+compute		pe_aSi_pure puremobile pe/atom
+compute		pe_aSi_puretotal puremobile reduce sum c_pe_aSi_pure
+variable	pe_aSi_pureAverage equal c_pe_aSi_puretotal/count(puremobile)
+
+compute		pe_cSi_pure purecrystalline pe/atom
+compute		pe_cSi_puretotal purecrystalline reduce sum c_pe_cSi_pure
+variable	pe_cSi_pureAverage equal c_pe_cSi_puretotal/count(purecrystalline)
+
+variable	excessEnergy equal v_pe_aSiAverage-v_pe_cSiAverage
+fix		pe_output all ave/time 100 5 10000 v_pe_aSiAverage v_pe_cSiAverage v_pe_aSi_pureAverage v_pe_cSi_pureAverage v_excessEnergy file potentialEnergy_combined.output
 
 # ----------Dump xyz file with atoms and bonds -----------
 # Read with Ovito or jmol
-dump 		1 all atom 1000 aSicSiInterface.xyz
+dump 		1 all atom 100 aSicSiInterface.xyz
 #dump_modify 	1 element Si
 
 # ------- Initialize conditions ----------
-#set initial temperature to be 800K, but first relax the system via energy minimization
-minimize 	1.0e-2 1.0e-6 1000 100000
+#set initial temperature of deposited a-Si to be 1600K, so that we avoid a large strain on the system
 velocity  	mobileatoms create 800.0 15046 mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
 timestep 	.0001 #.1 fs
 
@@ -46,20 +72,27 @@ thermo_style 	custom step temp pe ke etotal
 thermo 		100
 
 # --------Run simulation -------------
-#Stabilize the simulation at 800K, low enough that the amorphous layer won't melt again
-fix		1 all nvt temp 800.0 800.0 0.1
-run		100000 #10 ps
+#Heat the a-Si back up to 1600K rapidly
+fix		heat mobileatoms nvt temp 800.0 1600.0 0.1
+run		500000
+unfix		heat
+
+#Quench the a-Si from 1600K down to 300K
+fix		1 mobileatoms nvt temp 1600.0 300.0 0.1
+run		2150000 #Quench rate of 6x10^12 K/s
 unfix 		1
 
-fix		2 all langevin 800.0 0.0 0.1 15400
-run 		100000
+#Anneal the a-Si at 300K
+fix		2 mobileatoms nvt temp 300.0 300.0 0.1
+run 		250000 #anneal for 25 ps
 unfix 		2
 
-
-# --------- Run Energy Minimization -------------
-#minimize 	1.0e-4 1.0e-6 1000 100000
-#Alternative is to use fix viscous to drain the kinetic energy out of the system
-
+#Here we now quench the entire amorphous structure to 0K using Langevin methods, to be as relaxed as possible for the DFT analysis
+fix		3 mobileatoms langevin 300.0 0.0 0.1 16829
+fix		4 mobileatoms nve
+run 		500000
+unfix		3
+unfix		4
 
 # --------- Dump xyz file with atoms of only the final state ------------
 write_dump	all atom aSicSiInterfaceSnapshot.xyz
