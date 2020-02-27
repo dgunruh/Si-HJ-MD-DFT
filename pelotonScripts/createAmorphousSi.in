@@ -8,8 +8,9 @@ atom_modify 	map array
 variable	seed equal $s
 variable	dump string $d
 variable	dumpsnap string ${ds}
-variable	vel_seed equal random(0,100000,v_seed)
-variable	anneal_seed equal random(0,100000,v_seed)
+variable	vel_seed equal floor(random(0,100000,v_seed))
+variable	anneal_seed equal floor(random(0,100000,v_seed))
+print		"seed is ${seed}"
 
 # ---------Create Atoms-------------------
 # Si is a diamond lattice
@@ -25,7 +26,7 @@ create_atoms 	1 region BOX
 
 # ----------Define interatomic potential --------------
 pair_style 	tersoff/mod/c
-pair_coeff 	* * potentials/Si.tersoff.modc Si
+pair_coeff 	* * Si.tersoff.modc Si
 #neighbor 	4.0 bin
 #neigh_modify 	delay 10 check yes
 
@@ -34,12 +35,12 @@ pair_coeff 	* * potentials/Si.tersoff.modc Si
 
 # ----------Dump xyz file with atoms and bonds -----------
 # Read with Ovito or jmol
-dump 		1 all atom 10000 v_dump
+dump 		1 all atom 10000 ${dump}
 #dump_modify 	1 element Si
 
 # ------- Initialize conditions ----------
 #set initial temperature to be 2000K
-velocity 	all create 3000.0 v_vel_seed mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
+velocity 	all create 3000.0 ${vel_seed} mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
 timestep 	.0001 #.1 fs
 
 # ------- Display conditions each 1000 step
@@ -48,7 +49,7 @@ thermo 		100
 
 # --------Run simulation -------------
 #Stabilize the simulation at 2000K
-fix		1 all langevin 3000.0 3000.0 0.1 v_anneal_seed
+fix		1 all langevin 3000.0 3000.0 0.1 ${anneal_seed}
 fix		2 all nve
 run		200000 #anneal for 20 ps
 unfix 		1
@@ -66,5 +67,5 @@ unfix		4
 
 
 # --------- Dump xyz file with atoms of only the final state ------------
-write_dump	all atom v_dumpsnap
+write_dump	all atom ${dumpsnap}
 
