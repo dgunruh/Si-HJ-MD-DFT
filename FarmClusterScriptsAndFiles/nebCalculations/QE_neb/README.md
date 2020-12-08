@@ -1,0 +1,1 @@
+This code was scrapped in favor of performing the NEB calculations with LAMMPS instead. Performing DFT-driven NEB is so slow to the point of being unusable for structures of our size, even on the HPC clusters we have access to.

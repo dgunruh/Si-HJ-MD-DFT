@@ -1,0 +1,20 @@
+#!/bin/bash -l
+# Note the -l flag!
+
+# Name of the job
+SBATCH -J cSiaSiMD
+
+# Standard out and Standard Error output files with the job number in the name
+SBATCH -o cSiaSiMD-%j.output
+SBATCH -e cSiaSiMD-%j.output
+
+# no -n here, user provides on command line
+
+# run one thread for each one the user asks the queue for
+# hostname is just for debugging
+hostname
+export OMP_NUM_THREADS=$SLURM_NTASKS
+module load benchmarks
+
+# the main job executable to run: note the use of srun before it
+srun stream

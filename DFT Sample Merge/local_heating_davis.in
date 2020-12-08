@@ -1,0 +1,57 @@
+# ---------Initialize Simulation---------
+clear
+units           metal
+dimension       3
+boundary        p p p   #p indicates that the boundary (x,y,z) is periodic  s is shrink-wrapped
+atom_style      atomic
+atom_modify     map array
+variable        seed equal 251823
+variable        vel_seed equal floor(random(0,100000,v_seed))
+variable        anneal_seed equal floor(random(0,100000,v_seed))
+
+# ------- Read in Interface Structure --------
+read_dump       GAP1.xyz
+
+lattice         diamond 5.43 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+region          BlastSphere sphere 2.89 3.95 5.46 2.5 units box
+
+# ----------Define interatomic potential --------------
+pair_style      quip
+pair_coeff      * * ./potentials/gp_iter6_sparse9k.xml "Potential xml_label=GAP_2017_6_17_60_4_3_56_165" 14
+
+# --------- Create the localized heating group -----------
+group           mobileatoms region BlastSphere
+
+# ----------Dump xyz file with atoms and bonds -----------
+# Read with Ovito or jmol
+dump            1 all atom 100 aSi_post_heating_2000.xyz
+#dump_modify    1 element Si
+
+# ------- Initialize conditions ----------
+#set initial temperature of deposited a-Si to be 1600K, so that we avoid a large strain on the system
+velocity       mobileatoms create 2000.0 ${vel_seed} mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
+timestep        .001 #1 fs time steps
+
+# ------- Display conditions each 1000 step
+thermo_style    custom step temp pe ke etotal
+thermo          100
+
+# --------Run simulation -------------
+#First perform potential energy minimization with a conjugate gradient method
+min_style       hftn
+minimize        1.0e-2 1.0e-3 100 1000
+
+#Anneal the a-Si at 2000K for 4 ps
+velocity        mobileatoms create 2000.0 ${vel_seed} mom yes rot yes dist gaussian
+fix             anneal mobileatoms nvt temp 2000.0 2000.0 0.1
+run             40000
+unfix           anneal
+
+#Reduce T to 0K very quickly
+fix             cool mobileatoms nvt temp 2000.0 10.0 0.1
+run             5000
+unfix           cool
+
+# --------- Dump xyz file with atoms of only the final state ------------
+write_dump      all atom aSiFinalSnapshot_post_heating_2000.xyz
+

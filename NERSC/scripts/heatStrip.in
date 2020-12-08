@@ -1,0 +1,120 @@
+# ---------Initialize Simulation---------
+clear
+units 		metal
+dimension 	3
+boundary 	p p p   #p indicates that the boundary (x,y,z) is periodic  s is shrink-wrapped
+atom_style 	atomic
+atom_modify 	map array
+variable	seed equal $s
+variable	chng equal ${cng}
+variable	displ equal ${disp}
+variable	dump string $d
+variable	dumpSnap string ${ds}
+variable	vel_seed equal floor(random(0,100000,v_seed))
+variable	anneal_seed equal floor(random(0,100000,v_seed))
+
+# ------- Read in DFT structure --------
+read_data	gap1LAMMPS.out
+variable	averagemove equal $(v_chng/2.0 + v_displ/2.0)
+variable	ztop equal $(zhi/5.43 + v_averagemove)
+
+lattice 	diamond 5.43 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+change_box	all z delta 0 ${chng} units lattice
+displace_atoms	all move 0 0 ${displ} units lattice
+
+region 		CrystallineBox block EDGE EDGE EDGE EDGE EDGE ${displ} units lattice
+region		PURECRYSTALLINE block EDGE EDGE EDGE EDGE 1 2 units lattice
+
+region		AmorphousBox block EDGE EDGE EDGE EDGE ${displ} EDGE units lattice
+region		PUREAMORPHOUS block EDGE EDGE EDGE EDGE 4 5 units lattice
+
+region		heat1 block EDGE EDGE EDGE EDGE $(v_displ - .50) $(v_displ + .50) units lattice
+region		heat2 block EDGE EDGE EDGE EDGE $(v_ztop - .50) EDGE units lattice
+region		heat3 block EDGE EDGE EDGE EDGE EDGE 0.50 units lattice
+region		heating union 3 heat1 heat2 heat3
+
+# ----------Define interatomic potential --------------
+pair_style 	quip
+pair_coeff 	* * gp_iter6_sparse9k.xml "Potential xml_label=GAP_2017_6_17_60_4_3_56_165" 14
+
+# ----------Modify neighbors -------------
+neighbor	0.3 bin
+neigh_modify	delay 10
+
+# --------- Create the fixed crystalline structure -----------
+create_atoms 	1 region CrystallineBox
+
+group		fixedCatoms region CrystallineBox
+group		fixedAatoms subtract all fixedCatoms
+group		mobileatoms region heating
+
+# --------- Delete any atoms within a 0.5 Angstrom cutoff radius -------
+delete_atoms	overlap 0.5 fixedAatoms fixedCatoms
+delete_atoms	overlap 0.5 fixedCatoms fixedCatoms
+
+# --------- Identify the relevant groups of atoms ------------
+group		puremobile region PUREAMORPHOUS
+group		purecrystalline region PURECRYSTALLINE
+
+# ---------Define Potential Energy Outputs for Excess Energy Calculation --------------
+compute		pe_aSi fixedAatoms pe/atom
+compute		pe_aSitotal fixedAatoms reduce sum c_pe_aSi
+variable	pe_aSiAverage equal c_pe_aSitotal/count(fixedAatoms)
+
+compute		pe_cSi fixedCatoms pe/atom
+compute		pe_cSitotal fixedCatoms reduce sum c_pe_cSi
+variable	pe_cSiAverage equal c_pe_cSitotal/count(fixedCatoms)
+
+compute		pe_aSi_pure puremobile pe/atom
+compute		pe_aSi_puretotal puremobile reduce sum c_pe_aSi_pure
+variable	pe_aSi_pureAverage equal c_pe_aSi_puretotal/count(puremobile)
+
+compute		pe_cSi_pure purecrystalline pe/atom
+compute		pe_cSi_puretotal purecrystalline reduce sum c_pe_cSi_pure
+variable	pe_cSi_pureAverage equal c_pe_cSi_puretotal/count(purecrystalline)
+
+variable	excessEnergy equal v_pe_aSiAverage-v_pe_cSiAverage
+fix		pe_output all ave/time 100 5 10000 v_pe_aSiAverage v_pe_cSiAverage v_pe_aSi_pureAverage v_pe_cSi_pureAverage v_excessEnergy file potentialEnergy_combined.output
+
+# ----------Dump xyz file with atoms and bonds -----------
+# Read with Ovito or jmol
+#dump 		1 all atom 100 aSicSiInterface_GAP1.xyz
+dump		1 all atom 1000 ${dump}
+#dump_modify 	1 element Si
+
+# ------- Initialize conditions ----------
+#set initial temperature of deposited a-Si to be 1600K, so that we avoid a large strain on the system
+#velocity  	mobileatoms create 300.0 ${vel_seed} mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
+timestep 	.001 #1 fs
+
+# ------- Display conditions each 1000 step
+thermo_style 	custom step temp pe ke etotal
+thermo 		100
+
+# --------Run simulation -------------
+#First perform potential energy minimization with a conjugate gradient method
+min_style	hftn
+minimize	1.0e-2 1.0e-3 100 1000
+
+#Anneal the a-Si at 300K for 40 ps at a pressure of 0 GPa
+velocity  	mobileatoms create 300.0 ${vel_seed} mom yes rot yes dist gaussian
+fix		anneal mobileatoms nvt temp 450.0 450.0 0.1
+run 		25000
+unfix 		anneal
+
+fix		cool mobileatoms nvt temp 450.0 270.0 0.1
+run		18000
+unfix		cool
+
+#Reduce T to 0K
+#fix		cool mobileatoms nvt temp 500.0 300.0 0.1
+#run		200000
+#unfix		cool
+
+#perform a second potential energy minimization, again with the conjugate gradient method
+#min_style	hftn
+#minimize	1.0e-2 1.0e-3 100 1000
+
+# --------- Dump xyz file with atoms of only the final state ------------
+#write_dump	all atom aSicSiInterfaceFinalSnapshot_GAP1.xyz
+write_dump	all atom ${dumpSnap}

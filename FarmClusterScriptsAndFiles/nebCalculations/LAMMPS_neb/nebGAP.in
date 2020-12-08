@@ -1,0 +1,41 @@
+# ---------Initialize Simulation---------
+clear
+units 		metal
+dimension 	3
+boundary 	p p p   #p indicates that the boundary (x,y,z) is periodic  s is shrink-wrapped
+atom_style 	atomic
+atom_modify 	map array
+variable	initial string ${i}
+variable	final string ${f}
+
+# ------- Read in LAMMPS structure --------
+read_data  	${initial}
+
+# ----------Define interatomic potential --------------
+pair_style 	quip
+pair_coeff 	* * gp_iter6_sparse9k.xml "Potential xml_label=GAP_2017_6_17_60_4_3_56_165" 14
+
+# ----------Modify neighbors -------------
+neighbor	0.3 bin
+neigh_modify	delay 10
+
+# --------- Identify the relevant groups of atoms ------------
+group		nebatoms id ${nebids}
+group		fixedatoms subtract all nebatoms
+
+# ----------Dump xyz file with atoms and bonds -----------
+dump 		1 all atom 100 NEB_GAP.xyz
+
+# ------- Initialize conditions ----------
+timestep 	.01 #10 fs
+min_style	fire #NEB requires a damped dynamics minimization style. Fire or quickmin. 
+
+
+# -------- Fix the non-NEB atoms in place -------------
+fix		freeze fixedatoms setforce 0.0 0.0 0.0
+
+# -------- Set-up the fix for the NEB calculation --------------------
+fix		runneb nebatoms neb 10.0 parallel ideal perp 1.0
+
+# -------- Run the NEB calculation -----------------
+neb		0.0001 0.001 1000 50 final ${final}

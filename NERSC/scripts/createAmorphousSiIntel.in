@@ -1,0 +1,77 @@
+# ---------Initialize Simulation---------
+clear
+units 		metal
+dimension 	3
+boundary 	p p p   #p indicates that the boundary (x,y,z) is periodic  s is shrink-wrapped
+atom_style 	atomic
+atom_modify 	map array
+variable	seed equal $s
+variable	dump string $d
+variable	dumpSnap string ${ds}
+variable	vel_seed equal floor(random(0,100000,v_seed))
+variable	anneal_seed equal floor(random(0,100000,v_seed))
+package		intel 1
+#processors	* * * 1 2 multiple
+
+# ---------Create Atoms-------------------
+# Si is a diamond lattice
+# lattice constant: 5.5 AA
+
+lattice diamond 5.43
+region 		BOX block 0 3 0 3 0.0 3.054 units lattice
+create_box 	1 BOX
+
+lattice diamond 5.43 orient x 1 0 0 orient y 0 1 0 orient z 0  0 1
+mass 		1 28.0855
+create_atoms 	1 random 216 ${seed} BOX
+
+# ----------Define interatomic potential --------------
+pair_style 	quip
+pair_coeff 	* * gp_iter6_sparse9k.xml "Potential xml_label=GAP_2017_6_17_60_4_3_56_165" 14
+
+# -----------Modify Neighbors as specifed in example GAP script --------------
+neighbor	0.3 bin
+neigh_modify	delay 10
+
+# ----------Perform initial potential energy minimization with a conjugate gradient method -----------
+min_style	hftn
+minimize	1.0e-2 1.0e-3 100 1000
+
+# ----------Dump xyz file with atoms -----------
+dump 		1 all atom 10 ${dump}
+
+# ------- Initialize conditions ----------
+#set initial temperature to be 2400 K
+velocity 	all create 1800.0 ${vel_seed} mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
+timestep 	.001 #1 fs
+#run_style	verlet/split
+
+# ------- Display conditions each 1000 step
+thermo_style 	custom step temp pe press lx ly lz
+thermo 		1000
+
+# --------Run simulation -------------
+
+#Cool the system down to 1500K @ a rate of 10^13 K/s
+fix		cool all nvt temp 1800.0 1500.0 0.1
+run		30000
+unfix		cool
+
+
+#Anneal the system at 1500K
+fix		heat all nvt temp 1500.0 1500.0 0.1
+run		100000 #anneal for 100 ps
+unfix		heat
+
+#Cool the sample back down to 500K
+fix		quench all npt temp 1500.0 500.0 0.1 z 0.0 0.0 1.0 drag 0.2
+run 		1000000
+unfix		quench
+
+#Minimize final potential energy with a conjugate gradient method
+min_style	hftn
+minimize	1.0e-2 1.0e-3 100 1000
+
+# --------- Dump xyz file with atoms of only the final state ------------
+write_dump	all atom ${dumpSnap}
+

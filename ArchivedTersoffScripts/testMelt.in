@@ -1,0 +1,88 @@
+# ---------Initialize Simulation---------
+clear
+units 		metal
+dimension 	3
+boundary 	p p p   #p indicates that the boundary (x,y,z) is periodic  s is shrink-wrapped
+atom_style 	atomic
+atom_modify 	map array
+
+# ---------Create Atoms-------------------
+# Si is a diamond lattice
+# lattice constant: 5.5 AA
+
+lattice diamond 5.43
+region 		FULLBOX block 0 6 0 6 0 6 units lattice
+create_box 	1 FULLBOX
+
+lattice diamond 5.43 orient x 1 0 0 orient y 0 1 0 orient z 0  0 1
+mass 		1 28.0855
+create_atoms 	1 region FULLBOX
+
+# ----------Define interatomic potential --------------
+#pair_style 	tersoff
+#pair_coeff 	* * SiH_DUG_TersoffPRB.tersoff Si
+#pair_coeff	* * potentials/Si.tersoff Si
+#pair_coeff 	* * potentials/SiCGe.tersoff Si(D)
+pair_style	tersoff/mod/c
+pair_coeff	* * potentials/Si.tersoff.modc Si
+#neighbor 	4.0 bin
+#neigh_modify 	delay 10 check yes
+
+# ---------Create bonds --------------  NEED TO FIGURE OUT HOW TO DO THIS
+#create_bonds 	many all all 1 1.0 1.2
+
+# ----------Dump xyz file with atoms and bonds -----------
+# Read with Ovito or jmol
+dump 		1 all atom 1000 melt.xyz
+#dump_modify 	1 element Si
+
+# ------- Initialize conditions ----------
+#Use the Z method to estimate melting temperature
+#set initial temperature to be 4600K
+velocity 	all create 5600.0 15046 mom yes rot yes dist gaussian  # mom and rot yes means net linear and angular momentum is zero
+timestep 	.001
+
+#mod/c will melt 1-3 ratio at 2500K
+
+# ------- Display conditions each 1000 step
+thermo_style 	custom step temp pe ke etotal lz
+thermo 		100
+
+# --------Run simulation -------------
+#Stabilize the simulation at 2200K
+#fix		1 mobileatoms nvt temp 2000.0 2000.0 0.1
+#fix		1 mobileatoms langevin 2400.0 2400.0 0.1 15046
+fix		1 all nve
+run		50000
+unfix 		1
+
+#Heat the sample to 2000K
+#fix 		2 mobileatoms nvt temp 300.0 2000.0 0.1
+#run 		100000
+#unfix 		2
+
+#Anneal the sample at 2000K
+#fix 		3 mobileatoms nvt temp 2000.0 2000.0 0.1
+#run 		50000
+#unfix 		3
+
+#Cool the sample back down to 300K
+#fix		4 mobileatoms nvt temp 2000.0 300.0 0.1
+#run 		1000000
+#unfix		4
+
+
+#fix 		3 mobileatoms nvt temp 1000.0 500.0 100.0
+#run 		1000
+
+#fix		4 mobileatoms nvt temp 500.0 300.0 100.0
+#run 		1000
+
+
+# --------- Run Energy Minimization -------------
+#minimize 	1.0e-4 1.0e-6 1000 100000
+#Alternative is to use fix viscous to drain the kinetic energy out of the system
+
+# --------- Output final snapshot ---------------
+write_dump	all atom aSicSiInterface.xyz
+
