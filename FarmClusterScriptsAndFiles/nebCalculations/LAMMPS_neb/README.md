@@ -19,6 +19,9 @@ Useful LAMMPS python scripts:
 	neb_combine.py
 	neb_final.py
 
+Input files:
+	Sample input files can be found in the Dropbox, under "NEB Barrier Heights"/09132020/09-13-2020_inputs"
+
 NEB command: neb etol ftol N1 N2 Nevery file-style arg keyword
 	etol = stopping tolerance for energy
 	ftol = stopping tolerance for force

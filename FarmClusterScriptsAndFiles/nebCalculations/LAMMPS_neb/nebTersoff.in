@@ -19,11 +19,11 @@ variable	nebids atomfile ${idfile}
 #print		"Atom ids are ${nebids}"
 
 # ----------Define interatomic potential --------------
-pair_style 	quip
-pair_coeff 	* * gp_iter6_sparse9k.xml "Potential xml_label=GAP_2017_6_17_60_4_3_56_165" 14
+pair_style 	tersoff
+pair_coeff 	* * SiH_DUG_TersoffPRB.tersoff Si
 
 # ----------Modify neighbors -------------
-neighbor	2.0 bin
+neighbor	0.3 bin
 neigh_modify	delay 10
 
 # --------- Identify the relevant groups of atoms ------------
@@ -31,18 +31,18 @@ group		nebatoms variable nebids
 group		fixedatoms subtract all nebatoms
 
 # ----------Dump xyz file with atoms and bonds -----------
-dump 		1 all atom 1 dumps/${dumpfile}.$u
+dump 		1 all atom 1 dumps/localHeating_neb.$u
 
 # ------- Initialize conditions ----------
 timestep 	.001 #10 fs
-min_style	fire #NEB requires a damped dynamics minimization style. Fire or quickmin. 
+min_style	quickmin #NEB requires a damped dynamics minimization style. Fire or quickmin. 
 
 
 # -------- Fix the non-NEB atoms in place -------------
 fix		freeze fixedatoms setforce 0.0 0.0 0.0
 
 # -------- Set-up the fix for the NEB calculation --------------------
-fix		runneb nebatoms neb 1.0 parallel ideal perp 0.1
+fix		runneb nebatoms neb 1.0 parallel ideal perp 1.0
 
 # -------- Run the NEB calculation -----------------
-neb		1e-6 1e-6 10000 10000 10 final ${final}
+neb		0.0001 0.0001 1000 500 1 final ${final}
